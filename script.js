@@ -126,7 +126,10 @@ function update() {
 }
 
 function onClick() {
-	updateProductData();
+	// Hacky way to make sure our onClick is fired after the sites onClick
+	window.setTimeout(() => {
+		updateProductData();
+	}, 10);
 }
 
 function createProgressbar(domNode) {
