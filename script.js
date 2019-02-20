@@ -25,7 +25,7 @@ class Data {
 
 	getProductData(id) {
 		const data = this.data[id];
-        const percentage = Math.min(99, this.money / data.productPrice * 100); // 0 - 99 %
+        const percentage = Math.min(99.9, this.money / data.productPrice * 100); // 0 - 99 %
 		const timeLeft = Math.max(0, parseInt((data.productPrice - this.money) / this.moneyPerSecond, 10)); // >= 0
 		return {...data, percentage, timeLeft};
 	}
