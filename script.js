@@ -27,7 +27,8 @@ class Data {
 		const data = this.data[id];
         const percentage = Math.min(99.9, this.money / data.productPrice * 100); // 0 - 99 %
 		const timeLeft = Math.max(0, parseInt((data.productPrice - this.money) / this.moneyPerSecond, 10)); // >= 0
-		return {...data, percentage, timeLeft};
+		const cookiePerMoney = Math.round(data.mps / (data.productPrice || 1) * 100000);
+		return {...data, percentage, timeLeft, cookiePerMoney};
 	}
 
 	setProductData(id, data) {
@@ -93,9 +94,9 @@ function render() {
 		timer.innerText = secondsToTime(productData.timeLeft);
 
 		// Mps
-		const mps = productData.mps;
-		if (!isNaN(mps)) {
-			const mpsElement = progressbar.querySelector("#nok-mps").innerText = Math.round(mps / (productData.productPrice || 1) * 100000);
+		const cookiePerMoney = productData.cookiePerMoney;
+		if (!isNaN(cookiePerMoney)) {
+			const mpsElement = progressbar.querySelector("#nok-mps").innerText = cookiePerMoney;
 		}
 	}
 }
@@ -115,13 +116,34 @@ function updateProductData() {
 }
 
 function update() {
-	// Update Money and render
+	// Update Money
     const moneyString = document.getElementById('cookies').innerText.split("coo");
 	data.setMoney(stringToInt(moneyString[0]));
 	data.setMoneyPerSecond(stringToInt(moneyString[1].split(": ")[1]));
 
-	if(data.data.length === 0) { updateProductData(data); } // Update product data if we have no data, else we do it on click
+	// Update product data if we have no data, else we do it on click
+	if(data.data.length === 0) { updateProductData(data); }
 
+	// Calculate most efficient product
+	const productElements = getProducts().reverse();
+	let mostEfficientProduct = productElements[0];
+
+	for (const productElement of productElements) {
+		const productId = getProductId(productElement);
+		const productData = data.getProductData(productId);
+		const mostEfficientProductData = data.getProductData(getProductId(mostEfficientProduct));
+
+		if (isNaN(mostEfficientProductData.cookiePerMoney) || productData.cookiePerMoney > mostEfficientProductData.cookiePerMoney) {
+			mostEfficientProduct = productElement;
+		}
+	}
+
+	// Buy most efficient product
+	if (mostEfficientProduct.className.includes("enabled")) {
+		mostEfficientProduct.click();
+	}
+
+	// Render
 	render(data);
 }
 
