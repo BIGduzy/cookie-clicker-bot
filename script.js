@@ -125,7 +125,7 @@ function update() {
 	render(data);
 }
 
-function onProductClick() {
+function onClick() {
 	updateProductData();
 }
 
@@ -158,19 +158,23 @@ function createProgressbar(domNode) {
 	progressbar.appendChild(mps);
     domNode.appendChild(progressbar);
 
-	domNode.addEventListener('click', onProductClick);
-
     return progressbar;
 }
 
 // Create empty global data object
 const data = new Data();
+
 {
+	document.addEventListener('click', onClick);
 	// TODO: Wait for coockie clicker to load, (since its not loaded when onLoad is called)
 	// Since cookie clicker is not done loading when window.load is called we just wait a second d;)
 	window.setTimeout(() => {
 		console.log(data);
 		// Update every 100 ms
-		const intervalId = window.setInterval(update, 100);
+		const updateInterval = window.setInterval(update, 100);
+		const goldenCookieInterval = window.setInterval(() => {
+			const goldenCookie = document.querySelector(".shimmer");
+			if (goldenCookie) { goldenCookie.click(); }
+		}, 1000);
 	}, 1000);
 }
