@@ -23,17 +23,39 @@ class Data {
 		this.moneyPerSecond = amount;
 	}
 
-	getProductData(id) {
+    calculateProductData(id) {
 		const data = this.data[id];
         const percentage = Math.min(99.9, this.money / data.productPrice * 100); // 0 - 99 %
 		const timeLeft = Math.max(0, parseInt((data.productPrice - this.money) / this.moneyPerSecond, 10)); // >= 0
-		const cookiePerMoney = Math.round(data.mps / (data.productPrice || 1) * 100000);
-		return {...data, percentage, timeLeft, cookiePerMoney};
+		const incomePerMoney = Math.round(data.mps / (data.productPrice || 1) * 100000);
+
+        return {percentage, timeLeft, incomePerMoney};
+    }
+
+	getProductData(id) {
+		return {...this.data[id], ...this.calculateProductData(id)};
 	}
 
 	setProductData(id, data) {
 		this.data[id] = {...this.data[id], ...data}
 	}
+
+    getMostEfficientProduct() {
+        // TODO: Sort products based on efficiency, so that we can buy second most efficent when wait time is short
+
+        const data = [...this.data].reverse();
+        let mostEfficientProduct = this.data[0];
+        for (const product of data) {
+            const productData = this.getProductData(product.id);
+            const mostEfficientProductData = this.getProductData(mostEfficientProduct.id);
+
+            if (isNaN(mostEfficientProductData.incomePerMoney) || productData.incomePerMoney > mostEfficientProductData.incomePerMoney) {
+                mostEfficientProduct = productData;
+            }
+        }
+
+        return mostEfficientProduct;
+    }
 }
 
 function getProducts() {
@@ -44,6 +66,10 @@ function getProducts() {
 
 function getProductId(product) {
 	return parseInt(product.id.split("product")[1]);
+}
+
+function getProductById(id) {
+    return getProducts()[id];
 }
 
 function stringToInt(str) {
@@ -94,9 +120,9 @@ function render() {
 		timer.innerText = secondsToTime(productData.timeLeft);
 
 		// Mps
-		const cookiePerMoney = productData.cookiePerMoney;
-		if (!isNaN(cookiePerMoney)) {
-			const mpsElement = progressbar.querySelector("#nok-mps").innerText = cookiePerMoney;
+		const incomePerMoney = productData.incomePerMoney;
+		if (!isNaN(incomePerMoney)) {
+			const mpsElement = progressbar.querySelector("#nok-mps").innerText = incomePerMoney;
 		}
 	}
 }
@@ -108,8 +134,9 @@ function updateProductData() {
 		const mps = getProductInfo(productId);
 
 		data.setProductData(productId, {
+            id: productId,
 			productPrice: stringToInt(productElement.querySelector(".content .price").innerText),
-			mps: mps,
+			mps,
 		});
     }
 	console.log(data.data);
@@ -125,22 +152,11 @@ function update() {
 	if(data.data.length === 0) { updateProductData(data); }
 
 	// Calculate most efficient product
-	const productElements = getProducts().reverse();
-	let mostEfficientProduct = productElements[0];
-
-	for (const productElement of productElements) {
-		const productId = getProductId(productElement);
-		const productData = data.getProductData(productId);
-		const mostEfficientProductData = data.getProductData(getProductId(mostEfficientProduct));
-
-		if (isNaN(mostEfficientProductData.cookiePerMoney) || productData.cookiePerMoney > mostEfficientProductData.cookiePerMoney) {
-			mostEfficientProduct = productElement;
-		}
-	}
+    mostEfficientProductElement = getProductById(data.getMostEfficientProduct().id);
 
 	// Buy most efficient product
-	if (mostEfficientProduct.className.includes("enabled")) {
-		mostEfficientProduct.click();
+	if (mostEfficientProductElement.className.includes("enabled")) {
+		mostEfficientProductElement.click();
 	}
 
 	// Render
