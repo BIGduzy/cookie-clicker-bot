@@ -27,9 +27,10 @@ class Data {
         const product = this.products[id];
         const percentage = Math.min(99.9, this.money / product.productPrice * 100); // 0 - 99 %
         const timeLeft = Math.max(0, parseInt((product.productPrice - this.money) / this.moneyPerSecond, 10)); // >= 0
+        const totalTime = Math.max(0, parseInt(product.productPrice) / this.moneyPerSecond, 10); // >= 0
         const incomePerMoney = Math.round(product.mps / (product.productPrice || 1) * 100000);
 
-        return {percentage, timeLeft, incomePerMoney};
+        return {percentage, timeLeft, totalTime, incomePerMoney};
     }
 
     getProductData(id) {
@@ -40,19 +41,27 @@ class Data {
         this.products[id] = {...this.products[id], ...product}
     }
 
-    calculateEfficiency(productData1, productData2) {
-        // TODO: Calculate incomePerMoney efficiency vs all products, then we don't need to give 2 products to this function
+    getIncomePerMoneyEfficiency(product) {
+        const products = [...this.products].filter(el=>!isNaN(el.mps)).map(el=>this.getProductData(el.id));
+        let total = 0;
+        for (const p of products) {
+            total += p.incomePerMoney;
+        }
+        return (product.incomePerMoney / total || 1); // %
+    }
+
+    calculateEfficiency(productData) {
         // We don't like cursor
-        if (productData1.id === 0) { return 0; }
+        if (productData.id === 0) { return 0; }
         const total = (
              // Less than 20% of mps is bad with a 3 times multiplier
-            (isNaN(productData1.percentageOfMps) || productData1.percentageOfMps < 20) * -3 +
+            (isNaN(productData.percentageOfMps) || productData.percentageOfMps < 20) * -3 +
             // +1 because not a cursor
             1 +
-            // More income per money with a 2 times multiplier
-            (!isNaN(productData1.incomePerMoney) && !isNaN(productData2.incomePerMoney) && productData1.incomePerMoney > productData2.incomePerMoney) * 2
+            // More income per money with a 15 times multiplier
+            (!isNaN(productData.incomePerMoney)) * this.getIncomePerMoneyEfficiency(productData) * 15
         );
-        productData1.total = total; // TODO: Make a logger/debug class
+        productData.total = total; // TODO: Make a logger/debug class
         return total;
     }
 
@@ -66,10 +75,10 @@ class Data {
             return productData;
         }).sort((productData1, productData2) => {
             if (isNaN(productData2.incomePerMoney)) return -1;
-            return this.calculateEfficiency(productData2, productData1) - this.calculateEfficiency(productData1, productData2);
+            return this.calculateEfficiency(productData2) - this.calculateEfficiency(productData1);
         });
 
-        // Get the cheapestUndefindProduct
+        // Get the cheapest undefined product
         let cheapestundefinedProduct = undefined;
         for (const undefinedProduct of undefinedProducts) {
             if (undefinedProduct.id === 0) continue; // Skip cursor
@@ -83,7 +92,7 @@ class Data {
         // Else return most efficient product (first in products)
         for (const productData of products) {
             if (!isNaN(productData.incomePerMoney)) {
-                if (cheapestundefinedProduct && productData.timeLeft * 2 >= cheapestundefinedProduct.timeLeft) { // TODO: Calculate when its worth to do this
+                if (cheapestundefinedProduct && productData.totalTime * 2 >= cheapestundefinedProduct.totalTime) { // TODO: Calculate when its worth to do this
                     return {product: cheapestundefinedProduct, products};
                 }
                 return {product: productData, products};
