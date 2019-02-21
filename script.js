@@ -12,7 +12,7 @@ class Data {
     constructor() {
         this.money = 0;
         this.moneyPerSecond = 0;
-        this.data = [];
+        this.products = [];
     }
 
     setMoney(amount) {
@@ -24,37 +24,73 @@ class Data {
     }
 
     calculateProductData(id) {
-        const data = this.data[id];
-        const percentage = Math.min(99.9, this.money / data.productPrice * 100); // 0 - 99 %
-        const timeLeft = Math.max(0, parseInt((data.productPrice - this.money) / this.moneyPerSecond, 10)); // >= 0
-        const incomePerMoney = Math.round(data.mps / (data.productPrice || 1) * 100000);
+        const product = this.products[id];
+        const percentage = Math.min(99.9, this.money / product.productPrice * 100); // 0 - 99 %
+        const timeLeft = Math.max(0, parseInt((product.productPrice - this.money) / this.moneyPerSecond, 10)); // >= 0
+        const incomePerMoney = Math.round(product.mps / (product.productPrice || 1) * 100000);
 
         return {percentage, timeLeft, incomePerMoney};
     }
 
     getProductData(id) {
-        return {...this.data[id], ...this.calculateProductData(id)};
+        return {...this.products[id], ...this.calculateProductData(id)};
     }
 
-    setProductData(id, data) {
-        this.data[id] = {...this.data[id], ...data}
+    setProductData(id, product) {
+        this.products[id] = {...this.products[id], ...product}
+    }
+
+    calculateEfficiency(productData1, productData2) {
+        // TODO: Calculate incomePerMoney efficiency vs all products, then we don't need to give 2 products to this function
+        // We don't like cursor
+        if (productData1.id === 0) { return 0; }
+        const total = (
+             // Less than 20% of mps is bad with a 3 times multiplier
+            (isNaN(productData1.percentageOfMps) || productData1.percentageOfMps < 20) * -3 +
+            // +1 because not a cursor
+            1 +
+            // More income per money with a 2 times multiplier
+            (!isNaN(productData1.incomePerMoney) && !isNaN(productData2.incomePerMoney) && productData1.incomePerMoney > productData2.incomePerMoney) * 2
+        );
+        productData1.total = total; // TODO: Make a logger/debug class
+        return total;
     }
 
     getMostEfficientProduct() {
-        // TODO: Sort products based on efficiency, so that we can buy second most efficent when wait time is short
+        // Sort the products based on efficiency
+        const undefinedProducts = [];
+        const products = [...this.products].reverse().map((el) => {
+            const productData = this.getProductData(el.id);
+            if (isNaN(productData.incomePerMoney)) {undefinedProducts.push(productData);} // #sideEffects d;)
 
-        const data = [...this.data].reverse();
-        let mostEfficientProduct = this.data[0];
-        for (const product of data) {
-            const productData = this.getProductData(product.id);
-            const mostEfficientProductData = this.getProductData(mostEfficientProduct.id);
+            return productData;
+        }).sort((productData1, productData2) => {
+            if (isNaN(productData2.incomePerMoney)) return -1;
+            return this.calculateEfficiency(productData2, productData1) - this.calculateEfficiency(productData1, productData2);
+        });
 
-            if (isNaN(mostEfficientProductData.incomePerMoney) || productData.incomePerMoney > mostEfficientProductData.incomePerMoney) {
-                mostEfficientProduct = productData;
+        // Get the cheapestUndefindProduct
+        let cheapestundefinedProduct = undefined;
+        for (const undefinedProduct of undefinedProducts) {
+            if (undefinedProduct.id === 0) continue; // Skip cursor
+
+            if (cheapestundefinedProduct === undefined || cheapestundefinedProduct.id > undefinedProduct.id) {
+                cheapestundefinedProduct = undefinedProduct;
             }
         }
 
-        return mostEfficientProduct;
+        // Return undefined product if time left is < 0.5 of best product time left
+        // Else return most efficient product (first in products)
+        for (const productData of products) {
+            if (!isNaN(productData.incomePerMoney)) {
+                if (cheapestundefinedProduct && productData.timeLeft * 2 >= cheapestundefinedProduct.timeLeft) { // TODO: Calculate when its worth to do this
+                    return {product: cheapestundefinedProduct, products};
+                }
+                return {product: productData, products};
+            }
+        }
+
+        return {product: products[0], products};
     }
 }
 
@@ -96,13 +132,16 @@ function getProductInfo(id) {
 
     const tooltip = document.getElementById('tooltip');
     const data = tooltip.getElementsByTagName('b');
-    const mpsElement = data[0] || document.createElement('b');
+    const mpsElement = data[0] || document.createElement('b'); // Money per second
+    const percentageOfMpsElement = data[2] || document.createElement('b'); // Percentage of total mps
     const mps = stringToInt(mpsElement.innerText);
+    // TODO: Grandma's should include the dps they give to others
+    const percentageOfMps = stringToInt(percentageOfMpsElement.innerText.slice(0, -1)); // Remove %
 
     // Hide tooltip
     Game.tooltip.hide();
 
-    return mps;
+    return {mps, percentageOfMps};
 }
 
 function render() {
@@ -131,15 +170,16 @@ function updateProductData() {
     const productsElements = getProducts();
     for (const productElement of productsElements) {
         const productId = getProductId(productElement);
-        const mps = getProductInfo(productId);
 
         data.setProductData(productId, {
             id: productId,
             productPrice: stringToInt(productElement.querySelector(".content .price").innerText),
-            mps,
+            ...getProductInfo(productId),
         });
     }
-    console.log(data.data);
+
+    const {product, products} = data.getMostEfficientProduct();
+    console.log(product, products);
 }
 
 function update() {
@@ -149,10 +189,11 @@ function update() {
     data.setMoneyPerSecond(stringToInt(moneyString[1].split(": ")[1]));
 
     // Update product data if we have no data, else we do it on click
-    if(data.data.length === 0) { updateProductData(data); }
+    if(data.products.length === 0) { updateProductData(data); }
 
     // Calculate most efficient product
-    mostEfficientProductElement = getProductById(data.getMostEfficientProduct().id);
+    const {product: mostEfficientProduct} = data.getMostEfficientProduct()
+    mostEfficientProductElement = getProductById(mostEfficientProduct.id);
 
     // Buy most efficient product
     if (mostEfficientProductElement.className.includes("enabled")) {
