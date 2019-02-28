@@ -47,7 +47,7 @@ class Data {
         for (const p of products) {
             total += p.incomePerMoney;
         }
-        return (product.incomePerMoney / total || 1); // %
+        return (product.incomePerMoney / (total || 1)); // %
     }
 
     calculateEfficiency(productData) {
