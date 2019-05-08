@@ -135,7 +135,8 @@ function getProductById(id) {
 }
 
 function stringToInt(str) {
-    return parseInt(str.replace(/,/g, ""), 10);
+    // NOTE: praseInt does not work with scientific representations
+    return parseFloat(str.replace(/,/g, ""), 10);
 }
 
 function secondsToTime(sec) {
@@ -294,7 +295,6 @@ function update() {
 
         // Time to ascend
         if (data.currentChips > (data.totalChips / 10)) {
-            console.log(data.currentChips, data.totalChips);
             legacyButton.click();
             acceptPromt();
             state = STATES.heavenly;
@@ -370,8 +370,8 @@ const preFix = "idle-bot-";
     window.setTimeout(() => {
         console.log(data);
         // Update every 100 ms
-    	const updateInterval = window.setInterval(update, 100);
-    	const goldenCookieInterval = window.setInterval(() => {
+        const updateInterval = window.setInterval(update, 100);
+        const goldenCookieInterval = window.setInterval(() => {
             const goldenCookie = document.querySelector(".shimmer");
             if (goldenCookie) { goldenCookie.click(); }
         }, 1000);
