@@ -10,9 +10,19 @@
 
 class Data {
     constructor() {
+        this.currentChips = 0;
+        this.totalChips = 0;
         this.money = 0;
         this.moneyPerSecond = 0;
         this.products = [];
+    }
+
+    setCurrentChips(amount) {
+        this.currentChips = amount;
+    }
+
+    setTotalChips(amount) {
+        this.totalChips = amount;
     }
 
     setMoney(amount) {
@@ -103,6 +113,16 @@ class Data {
     }
 }
 
+/*
+*
+* UTILITY FUNCTIONS
+*
+*/
+
+function acceptPromt() {
+    document.getElementById("promptOption0").click();
+}
+
 function getProducts() {
     return [...document.querySelectorAll('div.product')].filter((el)=> {
         return !el.className.includes("toggledOff");
@@ -133,6 +153,15 @@ function secondsToTime(sec) {
     }
 }
 
+function getHeavenlyInfo(heavenlyUpgrade) {
+    heavenlyUpgrade.onmouseover();
+
+    const tooltip = document.getElementById("tooltip");
+    const chips = stringToInt(tooltip.querySelector(".price.heavenly").innerText);
+
+    return chips;
+}
+
 function getProductInfo(id) {
     // Open tooltip via game
     Game.tooltip.dynamic = 1;
@@ -152,6 +181,14 @@ function getProductInfo(id) {
 
     return {mps, percentageOfMps};
 }
+
+
+/*
+*
+* MAIN LOOP FUNCTIONS
+*
+*/
+
 
 function render() {
     const productsElements = getProducts();
@@ -175,6 +212,38 @@ function render() {
     }
 }
 
+function buyHeavenlyUpgrades() {
+    // Get DOM Elements
+    const heavenlyUpgrades = document.querySelectorAll('.heavenly.upgrade');
+    const spendableChips = stringToInt(document.querySelector("#ascendHCs .price.heavenly").innerText);
+
+    // Get prices
+    const heavelyPrices = [];
+    for (const upgrade of heavenlyUpgrades) {
+        if (!upgrade.className.includes("enabled") && !upgrade.className.includes("ghosted") ) {
+            heavelyPrices.push({upgrade: upgrade, price: getHeavenlyInfo(upgrade)});
+        }
+    }
+
+    // Sort prices from high to low
+    heavelyPrices.sort((el1, el2) => (el1.price >= el2.price) ? -1 : 1);
+
+    // Buy first upgrade we can buy
+    for (const upgrade of heavelyPrices) {
+        if (upgrade.price <= spendableChips) {
+            upgrade.upgrade.click();
+            console.log(upgrade);
+            break;
+        }
+    }
+
+    if (heavelyPrices.length === 0) {
+        return false;
+    }
+
+    return spendableChips < heavelyPrices[heavelyPrices.length - 1].price;
+}
+
 function updateProductData() {
     const productsElements = getProducts();
     for (const productElement of productsElements) {
@@ -192,25 +261,64 @@ function updateProductData() {
 }
 
 function update() {
-    // Update Money
-    const moneyString = document.getElementById('cookies').innerText.split("coo");
-    data.setMoney(stringToInt(moneyString[0]));
-    data.setMoneyPerSecond(stringToInt(moneyString[1].split(": ")[1]));
+    // TODO: Get state from DOM
 
-    // Update product data if we have no data, else we do it on click
-    if(data.products.length === 0) { updateProductData(data); }
+    if (state === STATES.normal) {
+        // Update Money
+        const moneyString = document.getElementById('cookies').innerText.split("coo");
+        data.setMoney(stringToInt(moneyString[0]));
+        data.setMoneyPerSecond(stringToInt(moneyString[1].split(": ")[1]));
 
-    // Calculate most efficient product
-    const {product: mostEfficientProduct} = data.getMostEfficientProduct()
-    mostEfficientProductElement = getProductById(mostEfficientProduct.id);
+        // Update chips
+        const legacyButton = document.getElementById("legacyButton");
+        const currentChipsPanel = legacyButton.querySelector(".roundedPanel");
+        data.setTotalChips(stringToInt(legacyButton.getElementsByTagName('B')[1].innerText));
+        data.setCurrentChips((currentChipsPanel.style.display === "none") ? 0 : stringToInt(currentChipsPanel.innerText));
 
-    // Buy most efficient product
-    if (mostEfficientProductElement.className.includes("enabled")) {
-        mostEfficientProductElement.click();
+        // Update product data if we have no data, else we do it on click
+        if(data.products.length === 0) { updateProductData(data); }
+
+        // Calculate most efficient product
+        const {product: mostEfficientProduct} = data.getMostEfficientProduct()
+        const mostEfficientProductElement = getProductById(mostEfficientProduct.id);
+
+        // Buy most efficient product
+        if (mostEfficientProductElement.className.includes("enabled")) {
+            mostEfficientProductElement.click();
+        }
+
+        // TODO: Calculate upgrade values
+        const upgrades = document.querySelectorAll('#upgrades div');
+        for (const upgrade of upgrades) {
+            if (upgrade.className.includes("enabled")) {
+                upgrade.click();
+            }
+        }
+
+        // Time to ascend
+        if (data.currentChips > (data.totalChips / 10)) {
+            console.log(data.currentChips, data.totalChips);
+            legacyButton.click();
+            acceptPromt();
+            state = STATES.heavenly;
+            return;
+        }
+
+        // Render
+        render(data);
+    } else if (state === STATES.heavenly) {
+        // Buy heavenly upgrades
+        const done = buyHeavenlyUpgrades();
+
+        // Can't buy any more, so we go back
+        if (done) {
+            const ascendButton = document.getElementById("ascendButton");
+            ascendButton.click();
+            acceptPromt();
+            state = STATES.normal;
+            return;
+        }
     }
-
-    // Render
-    render(data);
 }
 
 function onClick() {
@@ -254,6 +362,8 @@ function createProgressbar(domNode) {
 
 // Create empty global data object
 const data = new Data();
+const STATES = { normal: "normal", heavenly: "heavenly" };
+let state = STATES.normal;
 const preFix = "idle-bot-";
 
 {
