@@ -62,14 +62,11 @@ class Data {
 
     calculateEfficiency(productData) {
         // We don't like cursor
-        if (productData.id === 0) { return 0; }
         const total = (
-             // Less than 20% of mps is bad with a 3 times multiplier
-            (isNaN(productData.percentageOfMps) || productData.percentageOfMps < 20) * -3 +
-            // +1 because not a cursor
-            1 +
-            // More income per money with a 15 times multiplier
-            (!isNaN(productData.incomePerMoney)) * this.getIncomePerMoneyEfficiency(productData) * 15
+            // More percentage of Mps is better
+            (isNaN(productData.percentageOfMps)) || productData.percentageOfMps / 100 +
+            // More income per money is better
+            (!isNaN(productData.incomePerMoney)) * this.getIncomePerMoneyEfficiency(productData) * productData.incomePerMoney
         );
         productData.total = total; // TODO: Make a logger/debug class
         return total;
