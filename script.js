@@ -216,8 +216,7 @@ function buyUpgrades() {
     // Special upgrades
     // We can't click the element because they use canvas for it
     // Santa
-    {
-        Game.specialTabs.includes('santa');
+    if (Game.specialTabs.includes('santa')) {
         Game.specialTab = 'santa';
         Game.ToggleSpecialMenu(true);
         // While the evolve cost <= moneyPerSecond: evolve
@@ -232,8 +231,7 @@ function buyUpgrades() {
         Game.ToggleSpecialMenu(false);
     }
     // Dragon
-    {
-        Game.specialTabs.includes('dragon');
+    if (Game.specialTabs.includes('dragon')) {
         Game.specialTab = 'dragon';
         Game.ToggleSpecialMenu(true);
         // While the sac cost <= moneyPerSecond: sac
@@ -263,11 +261,13 @@ function buyUpgrades() {
                 const upgrades = promt.querySelectorAll("div.crate.enabled");
                 // Select aura
                 for (const upgrade of upgrades) {
-                    upgrade.click();
+                    upgrade.onmouseover();
                     const currentName = promt.querySelector("#dragonAuraInfo h4").innerText;
+                    upgrade.onmouseout();
 
                     //  set 2x all buff when possible
                     if (currentName === "Breath of Milk") {
+                        upgrade.click();
                         break;
                     }
                 }
@@ -313,19 +313,19 @@ function buyUpgrades() {
     const ghostly = upgradesByName["Ghostly biscuit"];
 
     // Buy love if not done
-    if (!love.done && !love.currentlySelected && love.upgrade.className.includes("enabled")) {
+    if (love && !love.done && !love.currentlySelected && love.upgrade.className.includes("enabled")) {
         love.upgrade.click();
         console.log("Seasonal upgrade:", love.name);
     // Buy festive if love done and festive not done
-    } else if (love.done && !festive.done && !festive.currentlySelected && festive.upgrade.className.includes("enabled")) {
+    } else if (festive && love.done && !festive.done && !festive.currentlySelected && festive.upgrade.className.includes("enabled")) {
         festive.upgrade.click();
         console.log("Seasonal upgrade:", festive.name);
     // Buy bunny if festive done and bunny not done
-    } else if (festive.done && !bunny.done && !bunny.currentlySelected && bunny.upgrade.className.includes("enabled")) {
+    } else if (bunny && festive.done && !bunny.done && !bunny.currentlySelected && bunny.upgrade.className.includes("enabled")) {
         bunny.upgrade.click();
         console.log("Seasonal upgrade:", bunny.name);
     // Buy ghostly if bunny done and ghostly not done
-    } else if (bunny.done && !ghostly.done && !ghostly.currentlySelected && ghostly.upgrade.className.includes("enabled")) {
+    } else if (ghostly && bunny.done && !ghostly.done && !ghostly.currentlySelected && ghostly.upgrade.className.includes("enabled")) {
         ghostly.upgrade.click();
         console.log("Seasonal upgrade:", ghostly.name);
     }
