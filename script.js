@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         CoockieClicker
+// @name         CookieClicker
 // @namespace
 // @version      1
-// @description  Coockie clicker overlay
+// @description  Cookie clicker overlay
 // @author       Nok
 // @match        http://orteil.dashnet.org/cookieclicker/
 // @grant        none
@@ -210,6 +210,147 @@ function render() {
     }
 }
 
+function buyUpgrades() {
+    // TODO: Don't hove every second
+
+    // Special upgrades
+    // We can't click the element because they use canvas for it
+    // Santa
+    {
+        Game.specialTabs.includes('santa');
+        Game.specialTab = 'santa';
+        Game.ToggleSpecialMenu(true);
+        // While the evolve cost <= moneyPerSecond: evolve
+        const button = document.querySelector("#specialPopup .optionBox a");
+        let cost = 0;
+        do {
+            const done = document.querySelector("#specialPopup H3").innerText === "Final Claus";
+            if (done) { break; }
+            cost = stringToInt(document.querySelector("#specialPopup .optionBox a div div").innerText.split(" cookie")[0]);
+            button.click();
+        } while(cost <= data.moneyPerSecond);
+        Game.ToggleSpecialMenu(false);
+    }
+    // Dragon
+    {
+        Game.specialTabs.includes('dragon');
+        Game.specialTab = 'dragon';
+        Game.ToggleSpecialMenu(true);
+        // While the sac cost <= moneyPerSecond: sac
+        const button = document.querySelector("#specialPopup .optionBox a");
+        let cost = 0;
+        let hatched = false;
+        do {
+            const costText = document.querySelector("#specialPopup .optionBox a div div").innerText;
+            if (costText.includes(" cookie")) {
+                cost = stringToInt(costText.split(" cookie")[0]);
+                button.click();
+            } else {
+                // TODO: Buy if has 100 of all till Prism then set 2x all buff
+                hatched = true;
+                break;
+            }
+        } while(cost <= data.moneyPerSecond);
+
+        if (hatched) {
+            // Set buff to milk
+            const aura = document.querySelector("#specialPopup .crate.enabled");
+            aura.onmouseover();
+            const name = document.querySelector("#tooltip h4").innerText;
+            if (name === "No aura") {
+                aura.click();
+                const promt = document.getElementById("prompt");
+                const upgrades = promt.querySelectorAll("div.crate.enabled");
+                // Select aura
+                for (const upgrade of upgrades) {
+                    upgrade.click();
+                    const currentName = promt.querySelector("#dragonAuraInfo h4").innerText;
+
+                    //  set 2x all buff when possible
+                    if (currentName === "Breath of Milk") {
+                        break;
+                    }
+                }
+                // Buy the aura
+                acceptPromt();
+            }
+            aura.onmouseout();
+        }
+        Game.ToggleSpecialMenu(false);
+    }
+
+    // Seasonal upgrades
+    const seasonalUpgrades = document.querySelectorAll('#toggleUpgrades div');
+    const upgradesByName = {};
+    for (const upgrade of seasonalUpgrades) {
+        if (!upgrade.className.includes("selector") && !upgrade.className.includes("pieTimer")) {
+            upgrade.onmouseover();
+            // Not a Seasonal
+            const description = document.querySelector("#tooltip div .description div");
+            if (!description) {
+                continue;
+            }
+            const name = document.querySelector("#tooltip div .name").innerText;
+            const currentlySelected = description.innerText.includes("(Click again to cancel season)");
+            const statuses = [...document.querySelectorAll("#tooltip div b")].slice(currentlySelected, -2);
+            let done = true;
+            for (const status of statuses) {
+                // E.G. 1/2 = false; 2/2 = true
+                const state = status.innerText.split("/");
+                if (state[0] !== state[1]) {
+                    done = false;
+                    break;
+                }
+            }
+            upgradesByName[name] = {upgrade, done, currentlySelected, name};
+            upgrade.onmouseout();
+        }
+    }
+
+    const love = upgradesByName["Lovesick biscuit"];
+    const festive = upgradesByName["Festive biscuit"];
+    const bunny = upgradesByName["Bunny biscuit"];
+    const ghostly = upgradesByName["Ghostly biscuit"];
+
+    // Buy love if not done
+    if (!love.done && !love.currentlySelected && love.upgrade.className.includes("enabled")) {
+        love.upgrade.click();
+        console.log("Seasonal upgrade:", love.name);
+    // Buy festive if love done and festive not done
+    } else if (love.done && !festive.done && !festive.currentlySelected && festive.upgrade.className.includes("enabled")) {
+        festive.upgrade.click();
+        console.log("Seasonal upgrade:", festive.name);
+    // Buy bunny if festive done and bunny not done
+    } else if (festive.done && !bunny.done && !bunny.currentlySelected && bunny.upgrade.className.includes("enabled")) {
+        bunny.upgrade.click();
+        console.log("Seasonal upgrade:", bunny.name);
+    // Buy ghostly if bunny done and ghostly not done
+    } else if (bunny.done && !ghostly.done && !ghostly.currentlySelected && ghostly.upgrade.className.includes("enabled")) {
+        ghostly.upgrade.click();
+        console.log("Seasonal upgrade:", ghostly.name);
+    }
+
+    // Buy tech upgrade
+    const upgrade = document.querySelector("#techUpgrades div.enabled");
+    if (upgrade) {
+        // Prevent grandmapocalypse
+        upgrade.onmouseover();
+        const hasWarning = !!document.querySelector("#tooltip div .warning");
+        if (!hasWarning) {
+            upgrade.click();
+        }
+        upgrade.onmouseout();
+    }
+
+    // TODO: Calculate upgrade values
+    const upgrades = document.querySelectorAll('#upgrades div');
+    for (const upgrade of upgrades) {
+        if (upgrade.className.includes("enabled")) {
+            upgrade.click();
+        }
+    }
+}
+
 function buyHeavenlyUpgrades() {
     // Get DOM Elements
     const heavenlyUpgrades = document.querySelectorAll('.heavenly.upgrade');
@@ -218,7 +359,7 @@ function buyHeavenlyUpgrades() {
     // Get prices
     const heavelyPrices = [];
     for (const upgrade of heavenlyUpgrades) {
-        if (!upgrade.className.includes("enabled") && !upgrade.className.includes("ghosted") ) {
+        if (!upgrade.className.includes("enabled") && !upgrade.className.includes("ghosted")) {
             heavelyPrices.push({upgrade: upgrade, price: getHeavenlyInfo(upgrade)});
         }
     }
@@ -285,13 +426,8 @@ function update() {
             mostEfficientProductElement.click();
         }
 
-        // TODO: Calculate upgrade values
-        const upgrades = document.querySelectorAll('#upgrades div');
-        for (const upgrade of upgrades) {
-            if (upgrade.className.includes("enabled")) {
-                upgrade.click();
-            }
-        }
+        // But upgrades
+        buyUpgrades();
 
         // Time to ascend
         if (data.currentChips > (data.totalChips / 10)) {
