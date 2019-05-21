@@ -15,6 +15,12 @@ class Data {
         this.money = 0;
         this.moneyPerSecond = 0;
         this.products = [];
+        this.upgrades = {
+            normal: {}, // name: { enabled: true/false, DOMnode: DOMnode }
+            tech: {},
+            seasonal: {},
+            special: {},
+        };
     }
 
     setCurrentChips(amount) {
@@ -49,6 +55,19 @@ class Data {
 
     setProductData(id, product) {
         this.products[id] = {...this.products[id], ...product}
+    }
+
+    getUpgrades(type) {
+        if (type === "seasonal") return this.upgrades[type];
+        return Object.values(this.upgrades[type]); // Object to array
+    }
+
+    updateUpgrade(type, name, upgrade) {
+       this.upgrades[type][name] = { ...this.upgrades[type][name], ...upgrade };
+    }
+
+    deleteUpgrade(type, name) {
+        delete this.upgrades[type][name];
     }
 
     getIncomePerMoneyEfficiency(product) {
@@ -160,6 +179,25 @@ function getHeavenlyInfo(heavenlyUpgrade) {
     return chips;
 }
 
+function getTechUpgradeInfo(DOMnode) {
+    DOMnode.onmouseover();
+    const name = document.querySelector("#tooltip div .name").innerText;
+    const enabled = DOMnode.className.includes("enabled");
+    const hasWarning = !!document.querySelector("#tooltip div .warning");
+    DOMnode.onmouseout();
+
+    return { name, enabled, hasWarning };
+}
+
+function getUpgradeInfo(DOMnode) {
+    DOMnode.onmouseover();
+    const name = document.querySelector("#tooltip div .name").innerText;
+    const enabled = DOMnode.className.includes("enabled");
+    DOMnode.onmouseout();
+
+    return { name, enabled };
+}
+
 function getProductInfo(id) {
     // Open tooltip via game
     Game.tooltip.dynamic = 1;
@@ -211,7 +249,8 @@ function render() {
 }
 
 function buyUpgrades() {
-    // TODO: Don't hove every second
+    // TODO: Move special upgrade data search to updateUpgradeData
+    // TODO: Dont' have blocking while loops
 
     // Special upgrades
     // We can't click the element because they use canvas for it
@@ -280,73 +319,46 @@ function buyUpgrades() {
     }
 
     // Seasonal upgrades
-    const seasonalUpgrades = document.querySelectorAll('#toggleUpgrades div');
-    const upgradesByName = {};
-    for (const upgrade of seasonalUpgrades) {
-        if (!upgrade.className.includes("selector") && !upgrade.className.includes("pieTimer")) {
-            upgrade.onmouseover();
-            // Not a Seasonal
-            const description = document.querySelector("#tooltip div .description div");
-            if (!description) {
-                continue;
-            }
-            const name = document.querySelector("#tooltip div .name").innerText;
-            const currentlySelected = description.innerText.includes("(Click again to cancel season)");
-            const statuses = [...document.querySelectorAll("#tooltip div b")].slice(currentlySelected, -2);
-            let done = true;
-            for (const status of statuses) {
-                // E.G. 1/2 = false; 2/2 = true
-                const state = status.innerText.split("/");
-                if (state[0] !== state[1]) {
-                    done = false;
-                    break;
-                }
-            }
-            upgradesByName[name] = {upgrade, done, currentlySelected, name};
-            upgrade.onmouseout();
-        }
-    }
-
+    const upgradesByName = data.getUpgrades("seasonal");
     const love = upgradesByName["Lovesick biscuit"];
     const festive = upgradesByName["Festive biscuit"];
     const bunny = upgradesByName["Bunny biscuit"];
     const ghostly = upgradesByName["Ghostly biscuit"];
 
     // Buy love if not done
-    if (love && !love.done && !love.currentlySelected && love.upgrade.className.includes("enabled")) {
-        love.upgrade.click();
-        console.log("Seasonal upgrade:", love.name);
+    if (love && !love.done && !love.currentlySelected && love.enabled) {
+        love.DOMnode.click();
+        console.log("Seasonal upgrade:", love.name, upgradesByName);
     // Buy festive if love done and festive not done
-    } else if (festive && love.done && !festive.done && !festive.currentlySelected && festive.upgrade.className.includes("enabled")) {
-        festive.upgrade.click();
-        console.log("Seasonal upgrade:", festive.name);
-    // Buy bunny if festive done and bunny not done
-    } else if (bunny && festive.done && !bunny.done && !bunny.currentlySelected && bunny.upgrade.className.includes("enabled")) {
-        bunny.upgrade.click();
-        console.log("Seasonal upgrade:", bunny.name);
+    } else if (festive && love.done && !festive.done && !festive.currentlySelected && festive.enabled) {
+        festive.DOMnode.click();
+        console.log("Seasonal upgrade:", festive.name, upgradesByName);
     // Buy ghostly if bunny done and ghostly not done
-    } else if (ghostly && bunny.done && !ghostly.done && !ghostly.currentlySelected && ghostly.upgrade.className.includes("enabled")) {
-        ghostly.upgrade.click();
-        console.log("Seasonal upgrade:", ghostly.name);
+    } else if (ghostly && festive.done && !ghostly.done && !ghostly.currentlySelected && ghostly.enabled) {
+        ghostly.DOMnode.click();
+        console.log("Seasonal upgrade:", ghostly.name, upgradesByName);
+    // Buy bunny if festive done and bunny not done
+    } else if (bunny && ghostly.done && !bunny.done && !bunny.currentlySelected && bunny.enabled) {
+        bunny.DOMnode.click();
+        console.log("Seasonal upgrade:", bunny.name, upgradesByName);
     }
 
     // Buy tech upgrade
-    const upgrade = document.querySelector("#techUpgrades div.enabled");
-    if (upgrade) {
+    const techUpgrades = data.getUpgrades("tech");
+    for (const upgrade of techUpgrades) {
         // Prevent grandmapocalypse
-        upgrade.onmouseover();
-        const hasWarning = !!document.querySelector("#tooltip div .warning");
-        if (!hasWarning) {
-            upgrade.click();
+        if (!upgrade.hasWarning) {
+            upgrade.DOMnode.click();
+            data.deleteUpgrade("tech", upgrade.name);
         }
-        upgrade.onmouseout();
     }
 
     // TODO: Calculate upgrade values
-    const upgrades = document.querySelectorAll('#upgrades div');
+    const upgrades = data.getUpgrades("normal");
     for (const upgrade of upgrades) {
-        if (upgrade.className.includes("enabled")) {
-            upgrade.click();
+        if (upgrade.enabled) {
+            upgrade.DOMnode.click();
+            data.deleteUpgrade("normal", upgrade.name);
         }
     }
 }
@@ -383,6 +395,74 @@ function buyHeavenlyUpgrades() {
     return spendableChips < heavelyPrices[heavelyPrices.length - 1].price;
 }
 
+function updateUpgradeData() {
+    // Seasonal upgrades
+    const seasonalUpgrades = document.querySelectorAll('#toggleUpgrades div');
+    for (const upgrade of seasonalUpgrades) {
+        if (!upgrade.className.includes("selector") && !upgrade.className.includes("pieTimer")) {
+            upgrade.onmouseover();
+            // Not a Seasonal
+            const description = document.querySelector("#tooltip div .description div");
+            if (!description) {
+                continue;
+            }
+            const name = document.querySelector("#tooltip div .name").innerText;
+            const currentlySelected = description.innerText.includes("(Click again to cancel season)");
+            const statuses = [...document.querySelectorAll("#tooltip div b")].slice(currentlySelected, -2);
+            let done = true;
+            for (const status of statuses) {
+                // E.G. 1/2 = false; 2/2 = true
+                const state = status.innerText.split("/");
+                if (state[0] !== state[1]) {
+                    done = false;
+                    break;
+                }
+            }
+            // TODO: Create get data function
+            data.updateUpgrade("seasonal", name, {
+                name,
+                enabled: upgrade.className.includes("enabled"),
+                done,
+                currentlySelected,
+                DOMnode: upgrade
+            });
+            upgrade.onmouseout();
+        }
+    }
+    // console.log(data.getUpgrades("seasonal"));
+
+    // Tech upgrade
+    const techUpgrade = document.querySelector("#techUpgrades div");
+    if (techUpgrade) {
+        const { name, enabled, hasWarning } = getTechUpgradeInfo(techUpgrade);
+        data.updateUpgrade("tech", name, {
+            name,
+            enabled,
+            hasWarning,
+            DOMnode: techUpgrade
+        });
+    }
+    data.updateUpgrade("tech", "dummy", {
+        name: "dummy",
+        enabled: false,
+        hasWarning: true,
+        DOMnode: null
+    });
+    // console.log(data.getUpgrades("tech"));
+
+    // Normal upgrades
+    const upgrades = document.querySelectorAll('#upgrades div');
+    for (const upgrade of upgrades) {
+        const { name, enabled } = getUpgradeInfo(upgrade);
+        data.updateUpgrade("normal", name, {
+            name,
+            enabled,
+            DOMnode: upgrade,
+        });
+    }
+    // console.log(data.getUpgrades("normal"));
+}
+
 function updateProductData() {
     const productsElements = getProducts();
     for (const productElement of productsElements) {
@@ -396,7 +476,7 @@ function updateProductData() {
     }
 
     const {product, products} = data.getMostEfficientProduct();
-    console.log(product, products);
+    //console.log(product, products);
 }
 
 function update() {
@@ -458,6 +538,7 @@ function onClick() {
     // Hacky way to make sure our onClick is fired after the sites onClick
     window.setTimeout(() => {
         updateProductData();
+        updateUpgradeData();
     }, 10);
 }
 
