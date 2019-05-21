@@ -21,6 +21,7 @@ class Data {
             seasonal: {},
             special: {},
         };
+        this.upgradeAvailable = false; // If an upgrade can be bought and the buyAllButton is enabled
     }
 
     setCurrentChips(amount) {
@@ -137,6 +138,10 @@ class Data {
 
 function acceptPromt() {
     document.getElementById("promptOption0").click();
+}
+
+function getBuyAllButton() {
+    return document.getElementById("storeBuyAllButton");
 }
 
 function getProducts() {
@@ -354,6 +359,10 @@ function buyUpgrades() {
     }
 
     // TODO: Calculate upgrade values
+    if (data.upgradeAvailable) {
+        const buyAllButton = getBuyAllButton();
+        buyAllButton.click();
+    }
     const upgrades = data.getUpgrades("normal");
     for (const upgrade of upgrades) {
         if (upgrade.enabled) {
@@ -450,15 +459,22 @@ function updateUpgradeData() {
     });
     // console.log(data.getUpgrades("tech"));
 
-    // Normal upgrades
-    const upgrades = document.querySelectorAll('#upgrades div');
-    for (const upgrade of upgrades) {
-        const { name, enabled } = getUpgradeInfo(upgrade);
-        data.updateUpgrade("normal", name, {
-            name,
-            enabled,
-            DOMnode: upgrade,
-        });
+    // Check if the buyAllButton (heavenly upgrade) is present
+    const buyAllButton = getBuyAllButton();
+    if (buyAllButton) {
+        const upgrades = document.querySelectorAll('#upgrades div.enabled');
+        data.upgradeAvailable = (upgrades.length > 0)
+    } else {
+        // Normal upgrades
+        const upgrades = document.querySelectorAll('#upgrades div');
+        for (const upgrade of upgrades) {
+            const { name, enabled } = getUpgradeInfo(upgrade);
+            data.updateUpgrade("normal", name, {
+                name,
+                enabled,
+                DOMnode: upgrade,
+            });
+        }
     }
     // console.log(data.getUpgrades("normal"));
 }
